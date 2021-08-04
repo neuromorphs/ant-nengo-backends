@@ -9,6 +9,8 @@ class Simulator(object):
         self.dt = dt
         self.n_steps = 0
 
+        self.data = {}
+
         self.ensemble_map = {}
         rng = np.random.RandomState(model.seed)
         for ens in model.all_ensembles:
@@ -32,6 +34,15 @@ class Simulator(object):
                 node = conn.post
                 self.neuron_outputs[lmu] = self.node_inputs[node]
 
+        self.neuron_probes = {}
+        for p in model.all_probes:
+            if isinstance(p.target, nengo.ensemble.Neurons) and p.attr=='output':
+                ens = p.target.ensemble
+                lmu = self.ensemble_map[ens]
+                self.data[p] = []
+                self.neuron_probes[lmu] = self.data[p]
+
+
     def run(self, time_in_seconds):
         step_count = int(time_in_seconds / self.dt)
         for i in range(step_count):
@@ -42,7 +53,16 @@ class Simulator(object):
             lmu.step(np.zeros(lmu.m.shape[1]))
         for lmu, node_input in self.neuron_outputs.items():
             node_input[:] += lmu.a
+        for lmu, probe_data in self.neuron_probes.items():
+            probe_data.append(lmu.a.copy())
         for node, node_input in self.node_inputs.items():
             node.output(self.n_steps * self.dt, node_input.copy())
             node_input[:] = 0
         self.n_steps += 1
+
+
+    def trange(self, sample_every=None):
+        if sample_every is None:
+            sample_every = self.dt
+
+        return (np.arange(self.n_steps)+1)*sample_every

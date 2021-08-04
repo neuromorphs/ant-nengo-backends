@@ -22,3 +22,14 @@ def test_sequence0():
     plt.show()
 
     
+def test_sequence1():
+    model = nengo.Network()
+    with model:
+        ens = nengo.Ensemble(n_neurons=100, dimensions=1)
+        p = nengo.Probe(ens.neurons)
+
+    sim = nengo_lmublock.Simulator(model)
+    sim.run(1)
+    plt.plot(sim.trange(), sim.data[p])
+    plt.show()
+
