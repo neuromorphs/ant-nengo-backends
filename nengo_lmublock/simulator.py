@@ -3,6 +3,17 @@ import numpy as np
 
 import lmu_wta
 
+class BuildEnsemble(object):
+    def __init__(self, ensemble, rng):
+        self.encoders = ensemble.encoders.sample(ensemble.n_neurons, ensemble.dimensions, rng=rng)
+        self.max_rates = ensemble.max_rates.sample(ensemble.n_neurons, rng=rng)
+        self.intercepts = ensemble.intercepts.sample(ensemble.n_neurons, rng=rng)
+
+        # TODO: handle neuron models other than rectified linear
+        self.gain = self.max_rates / (1 - self.intercepts)
+        self.bias = -self.intercepts * self.gain
+
+        self.scaled_encoders = self.encoders * self.gain[:, None]
 
 class Simulator(object):
     def __init__(self, model, dt=0.001):
@@ -17,8 +28,11 @@ class Simulator(object):
             lmu = lmu_wta.LMUWTABlock(q=1, theta=dt, n_neurons=ens.n_neurons,
                                       size_in=ens.dimensions,
                                       size_out=1)
+            self.data[ens] = BuildEnsemble(ens, rng)
             self.ensemble_map[ens] = lmu
-            lmu.bias[:] = rng.uniform(-1,1, size=ens.n_neurons)
+
+            lmu.bias[:] = self.data[ens].bias
+            lmu.E[:] = self.data[ens].scaled_encoders
 
         self.node_inputs = {}
         for node in model.all_nodes:
